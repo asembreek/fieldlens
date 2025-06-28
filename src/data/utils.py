@@ -5,7 +5,7 @@ import pandas as pd
 
 
 def create_reducer(
-    region, reducer=ee.Reducer.mean(), scale=1000, maxPixels=1e13, tileScale=4
+    region, scale, reducer=ee.Reducer.mean(), maxPixels=1e13, tileScale=4
 ):
     def reduce_region_function(image):
         reduced = image.reduceRegion(

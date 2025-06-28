@@ -10,23 +10,23 @@ ee.Authenticate()
 ee.Initialize(project="agriculture-drought-assesment")
 
 from data import indices, loadS2, utils
-from visualisation import ndvi_plotter
+from visualisation import index_plotter
 
 importlib.reload(indices)
 importlib.reload(loadS2)
 importlib.reload(utils)
-importlib.reload(ndvi_plotter)
+importlib.reload(index_plotter)
 
 
 def main():
 
     region = utils.get_region()
-    s2_clouded = loadS2.get_s2_data(region, "2017-04-01", "2025-06-30")
+    s2_clouded = loadS2.get_s2_data(region, "2019-01-01", "2024-12-31")
     s2_clear_sky = s2_clouded.map(loadS2.s2_clear_sky)
-    reduce_fn = utils.create_reducer(region)
+    reduce_fn = utils.create_reducer(region, scale=10)
 
-    ndwi_df = get_index_df(s2_clear_sky, reduce_fn, "NDVI")
-    ndvi_plotter.plot_index(ndwi_df, "NDVI")
+    ndvi_df = get_index_df(s2_clear_sky, reduce_fn, "NDVI")
+    index_plotter.plot_index_barchart(ndvi_df, "NDVI")
 
 
 def get_index_df(s2, reducer, index):

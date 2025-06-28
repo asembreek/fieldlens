@@ -13,6 +13,6 @@ def get_s2_data(aoi, idate, fdate):
 
 def s2_clear_sky(image):
     scl = image.select("SCL")
-    clear_sky_pixels = scl.eq(4).Or(scl.eq(5)).Or(scl.eq(6)).Or(scl.eq(11))
+    clear_sky_pixels = scl.eq(4).Or(scl.eq(5)).Or(scl.eq(6))
     masked = image.updateMask(clear_sky_pixels).divide(10000)
     return masked.copyProperties(image, ["system:time_start"])

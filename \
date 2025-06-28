@@ -1,0 +1,131 @@
+import json
+
+import ee
+from _typeshed import SliceableBuffer
+
+# %matplotlib inline
+
+
+class Sentinel_2:
+    def __init__(
+        self,
+        i_date,
+        f_date,
+        cloud_filter,
+        cld_prb_thresh,
+        nir_drk_thresh,
+        cld_prj_dist,
+        buffer,
+    ):
+        self.i_date = i_date
+        self.f_date = f_date
+        self.region = None
+        self.cloud_filter = cloud_filter
+        self.cld_prb_thresh = cld_prb_thresh
+        self.nir_drk_thresh = nir_drk_thresh
+        self.cld_prj_dist = cld_prj_dist
+        self.buffer = buffer
+
+    def set_region(self, gjson):
+        coords = gjson["features"][0]["geometry"]["coordinates"]
+        self.region = ee.Geometry.Polygon(coords)
+
+    def get_region(self):
+        return self.region
+
+    def get_sent2_data(self):
+
+        s2_data = ee.Image(
+            ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+            .filterDate(self.i_date, self.f_date)
+            .filterBounds(self.region)
+            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 20))
+            .first()
+            .clip(self.region)
+        )
+        return s2_data
+
+    def get_cloudless_s2_data(self):
+        s2_data = get_s2_sr_cld_col()
+        shadow_mask = apply_cld_shdow_mask()
+        s2_sr_median = s2_data.map(shadow_mask)
+
+    def get_s2_sr_cld_col(self):
+        s2_sr_col = (
+            ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+            .filterBounds(self.region)
+            .filterDate(self.i_date, self.f_date)
+            .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE"), self.cloud_filter)
+        )
+
+        s2_cloudless_col = (
+            ee.ImageCollection("COPERNICUS/S2_CLOUD_PROBABILITY")
+            .filterBounds(self.region)
+            .filterDate(self.i_date, self.f_date)
+        )
+
+        return ee.ImageCollection(
+            ee.Join.saveFirst("s2cloudless").apply(
+                **{
+                    "primary": s2_sr_col,
+                    "secondary": s2_cloudless_col,
+                    "condition": ee.Filter.equals(
+                        **{"leftField": "system:index", "rightField": "system.index"}
+                    ),
+                }
+            )
+        )
+
+    def add_cloud_bands(self, img):
+        cld_prb = ee.Image(img.get("s2cloudless")).select("probability")
+        is_cloud = cld_prb.gt(self.cld_prb_thresh).rename("clouds")
+        return img.addBands(ee.Image([cld_prb, is_cloud]))
+
+    def add_shadow_bands(self, img):
+        not_water = img.select("SCL").neq(6)
+        SR_BAND_SCALE = 1e4
+        dark_pixels = (
+            img.select("B8")
+            .lt(self.nir_drk_thresh * SR_BAND_SCALE)
+            .multiply(not_water)
+            .rename("dark_pixels")
+        )
+        shadow_angle = ee.Number(90).subtract(
+            ee.Number(img.get("MEAN_SOLAR_AZIMUTH_ANGLE"))
+        )
+        cld_proj = (
+            img.select("clouds")
+            .directionalDistanceTransform(shadow_angle, self.cld_prj_dist * 10)
+            .reproject(**{"crs": img.select(0).projection(), "scale": 100})
+            .select("distance")
+            .mask()
+            .rename("cloud_transform")
+        )
+        shadows = cld_proj.multiply(dark_pixels).rename("shadows")
+        return img.addBands(ee.Image([dark_pixels, cld_proj, shadows]))
+
+    def apply_cld_shdow_mask(img):
+        not_cld_sdw = img.select("cloudmask").Not()
+        return img.select("B.*").updateMask(not_cld_sdw)
+
+    def add_cld_shdow_mask(img):
+        img_cloud = add_cloud_bands(img)
+        img_cloud_shadow = add_shadow_bands(img_cloud)
+        is_cld_shdw = (
+            img_cloud_shadow.select("clouds")
+            .add(img_cloud_shadow.select("shadows"))
+            .gt(0)
+        )
+        is_cld_shdw = (
+            is_cld_shdw.focalMin(2)
+            .focalMax(self.buffer * 2 / 20)
+            .reproject(**{"crs": img.select([0]).projection(), "scale": 20})
+            .rename("cloudmask")
+        )
+        return img_cloud_shadow.addBands(is_cld_shdw)
+
+    def get_ndvi_data(self, s2):
+        R = "B4"
+        NIR = "B8"
+        ndvi = s2.normalizedDifference([NIR, R])
+        return ndvi

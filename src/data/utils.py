@@ -29,7 +29,20 @@ def get_region():
     return region
 
 
-def fc_to_dict(fc):
+def fc_to_df(image, fc_selection, reducer_fn, filt=None):
+    fc_data = image.select(fc_selection)
+    if not filt:
+        features = ee.FeatureCollection(fc_data.map(reducer_fn))
+    else:
+        features = ee.FeatureCollection(fc_data.map(reducer_fn)).filter(filt)
+
+    select_dict = _fc_to_dict(features).getInfo()
+    select_df = pd.DataFrame(select_dict)
+    select_df = _add_date_info(select_df)
+    return select_df
+
+
+def _fc_to_dict(fc):
     property_name = fc.first().propertyNames()
     prop_lists = fc.reduceColumns(
         reducer=ee.Reducer.toList().repeat(property_name.size()),
@@ -39,7 +52,7 @@ def fc_to_dict(fc):
     return ee.Dictionary.fromLists(property_name, prop_lists)
 
 
-def add_date_info(df):
+def _add_date_info(df):
     df["Timestamp"] = pd.to_datetime(df["millis"], unit="ms")
     df["Year"] = pd.DatetimeIndex(df["Timestamp"]).year
     df["Month"] = pd.DatetimeIndex(df["Timestamp"]).month

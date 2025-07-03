@@ -1,11 +1,11 @@
 import ee
 
 
-def get_s2_data(aoi, idate, fdate):
+def get_s2_data(aoi, i_date, f_date):
     s2_sr_col = (
         ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
         .filterBounds(aoi)
-        .filterDate(idate, fdate)
+        .filterDate(i_date, f_date)
         .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", 20))
     )
     return s2_sr_col

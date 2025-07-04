@@ -4,7 +4,10 @@ import ee
 import pandas as pd
 import seaborn as sns
 
+print("Authenticating with Google Earth Engine...")
 ee.Authenticate()
+
+print("Initializing project...")
 ee.Initialize(project="agriculture-drought-assesment")
 
 from data import indices, load_ERA5, load_S2, utils
@@ -20,9 +23,14 @@ importlib.reload(index_plotter)
 def main():
 
     region = utils.get_region()
+    i_date = "2024-01-01"
+    f_date = "2024-12-31"
+    print(f"Loading Sentinel-2 dataset for periods {i_date} to {f_date}")
 
-    # s2_clouded = load_S2.get_s2_data(region, "2024-01-01", "2024-12-31")
-    era5_data = load_ERA5.get_era5_data(region, "2024-01-01", "2024-12-31")
+    s2_clouded = load_S2.get_s2_data(region, i_date, f_date)
+    print(f"Loading ERA5 Land data for periods {i_date} to {f_date}")
+
+    era5_data = load_ERA5.get_era5_data(region, i_date, f_date)
 
     # s2_clear_sky = s2_clouded.map(load_S2.s2_clear_sky)
     # index_fn = indices.get_index_fn("NDVI")

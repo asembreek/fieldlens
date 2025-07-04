@@ -29,7 +29,7 @@ def get_region():
     return region
 
 
-def fc_to_df(image, fc_selection, reducer_fn, filt=None):
+def im_to_df(image, fc_selection, reducer_fn, filt=None):
     fc_data = image.select(fc_selection)
     if not filt:
         features = ee.FeatureCollection(fc_data.map(reducer_fn))

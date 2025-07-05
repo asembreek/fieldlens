@@ -30,6 +30,7 @@ def get_region():
 
 
 def im_to_df(image, fc_selection, reducer_fn, filt=None):
+    print(f"Creating {fc_selection} DataFrame...")
     fc_data = image.select(fc_selection)
     if not filt:
         features = ee.FeatureCollection(fc_data.map(reducer_fn))

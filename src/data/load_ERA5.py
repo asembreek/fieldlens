@@ -37,7 +37,7 @@ def get_soil_levels_df(image, reducer_fn, variable):
             sl_df["Timestamp"] = sl_i_df["Timestamp"]
 
         sl_df[fc_selection] = sl_i_df[fc_selection]
-
+    print(f"Concatinated {variable} levels DataFrame.")
     return sl_df
 
 

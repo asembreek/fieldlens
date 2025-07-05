@@ -1,7 +1,22 @@
 import ee
 
+from data import utils
 
-def get_index_fn(index):
+NDVI = "NDVI"
+NDRE = "NDRE"
+NDWI = "NDWI"
+
+
+def get_index_df(s2, index, reducer_fn):
+    index_fn = _get_index_fn(index)
+    index_calc_data = s2.map(index_fn)
+    index_df = utils.im_to_df(
+        index_calc_data, index, reducer_fn, filt=ee.Filter.notNull([index])
+    )
+    return index_df
+
+
+def _get_index_fn(index):
     match index:
         case "NDVI":
             return _append_ndvi

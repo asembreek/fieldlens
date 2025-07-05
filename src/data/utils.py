@@ -38,7 +38,7 @@ def im_to_df(image, fc_selection, reducer_fn, filt=None):
 
     select_dict = _fc_to_dict(features).getInfo()
     select_df = pd.DataFrame(select_dict)
-    select_df = _add_date_info(select_df)
+    select_df = _add_timestamp(select_df)
     return select_df
 
 
@@ -50,6 +50,12 @@ def _fc_to_dict(fc):
     ).get("list")
 
     return ee.Dictionary.fromLists(property_name, prop_lists)
+
+
+def _add_timestamp(df):
+    df["Timestamp"] = pd.to_datetime(df["millis"], unit="ms")
+    f_df = df.drop(columns=["millis", "system:index"])
+    return f_df
 
 
 def _add_date_info(df):

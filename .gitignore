@@ -173,8 +173,8 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# Notebooks
-*.ipynb
+# CSV files (temporary)
+*.csv
 
 # Geoanalysis files
 *.geojson

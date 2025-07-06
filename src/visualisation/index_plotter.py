@@ -13,9 +13,9 @@ def plot_index_heatmap(df, index):
 
 
 def plot_index_barchart(df, index):
-    df["date"] = pd.to_datetime(df[["Year", "Month", "Day"]])
-    df = df.sort_values("date")
+    # df["date"] = pd.to_datetime(df[["Year", "Month", "Day"]])
+    df = df.sort_values("Timestamp")
     plt.figure(figsize=(10, 6))
-    sns.barplot(data=df, x=df["date"], y=df[index])
+    sns.barplot(data=df, x=df["Timestamp"], y=df[index])
     plt.tight_layout()
     plt.show()

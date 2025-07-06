@@ -29,6 +29,16 @@ def get_region():
     return region
 
 
+def merge_with_master(master, *other_dfs):
+    master_dates = master["Timestamp"]
+    master_df = master.copy()
+
+    for df in other_dfs:
+        df_filtered = df[df["Timestamp"].isin(master_dates)].copy()
+        master_df = pd.merge(master_df, df_filtered, on="Timestamp", how="inner")
+    return master_df
+
+
 def im_to_df(image, fc_selection, reducer_fn, filt=None):
     print(f"Creating {fc_selection} DataFrame...")
     fc_data = image.select(fc_selection)

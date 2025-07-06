@@ -1,4 +1,5 @@
 import ee
+import pandas as pd
 
 from data import utils
 
@@ -14,6 +15,23 @@ def get_index_df(s2, index, reducer_fn):
         index_calc_data, index, reducer_fn, filt=ee.Filter.notNull([index])
     )
     return index_df
+
+
+def apply_groupby_date(i_df, *other_dfs):
+    all_dfs = (i_df,) + other_dfs
+    grouped_results = []
+    for df in all_dfs:
+        col_name = df.columns[0]
+        grouped = (
+            df.groupby(df["Timestamp"].dt.date)
+            .agg({df.columns[0]: ["mean", "std"]})
+            .fillna(0)
+            .reset_index()
+        )
+        grouped.columns = ["Timestamp", f"{col_name}_mean", f"{col_name}_std"]
+        grouped["Timestamp"] = pd.to_datetime(grouped["Timestamp"])
+        grouped_results.append(grouped)
+    return grouped_results
 
 
 def _get_index_fn(index):

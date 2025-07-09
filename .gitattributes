@@ -1,0 +1,2 @@
+# Add Jupyter Notebooks as documentatioin instead of source code
+*.ipynb linguist-documentation

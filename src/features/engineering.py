@@ -2,20 +2,6 @@ import pandas as pd
 from pandas.api.types import is_float_dtype
 
 
-def lag_col(df, column, periods, fill=None):
-    df_copy = df.copy()
-    if not isinstance(periods, list):
-        raise TypeError(f"Expected list, but got {type(periods).__name__}")
-
-    if fill == None:
-        for lag in periods:
-            df_copy[f"{column}_lag_{lag}"] = df_copy[column].shift(lag)
-    else:
-        for lag in periods:
-            df_copy[f"{column}_lag_{lag}"] = df_copy[column].shift(lag, fill_value=fill)
-    return df_copy
-
-
 def add_rolling_statistics(df, periods):
     df = df.sort_values("Timestamp")
     df_features = pd.DataFrame()
@@ -34,3 +20,17 @@ def add_rolling_statistics(df, periods):
                 )
 
     return df_features
+
+
+def lag_col(df, columns, periods):
+    df = df.sort_values("Timestamp")
+    df_lag = pd.DataFrame(df["Timestamp"].copy())
+
+    if not isinstance(periods, list):
+        raise TypeError(f"Expected list, but got {type(periods).__name__}")
+
+    for c in columns:
+        if pd.api.types.is_float_dtype(df[c]):
+            for lag in periods:
+                df_lag[f"{c}_lag_{lag}"] = df[c].shift(lag)
+    return df_lag

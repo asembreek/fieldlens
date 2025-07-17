@@ -69,8 +69,7 @@ def _add_timestamp(df):
     return f_df
 
 
-def _add_date_info(df):
-    df["Timestamp"] = pd.to_datetime(df["millis"], unit="ms")
+def add_date_info(df):
     df["Year"] = pd.DatetimeIndex(df["Timestamp"]).year
     df["Month"] = pd.DatetimeIndex(df["Timestamp"]).month
     df["Day"] = pd.DatetimeIndex(df["Timestamp"]).day

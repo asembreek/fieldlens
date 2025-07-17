@@ -1,5 +1,5 @@
+import numpy as np
 import pandas as pd
-from pandas.api.types import is_float_dtype
 
 
 def add_rolling_statistics(df, periods):
@@ -34,3 +34,9 @@ def lag_col(df, columns, periods):
             for lag in periods:
                 df_lag[f"{c}_lag_{lag}"] = df[c].shift(lag)
     return df_lag
+
+
+def sin_cos_doy(df):
+    df["DOY_sin"] = np.sin(2 * np.pi * df["DOY"] / 365.25)
+    df["DOY_cos"] = np.cos(2 * np.pi * df["DOY"] / 365.25)
+    return df

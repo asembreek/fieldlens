@@ -21,7 +21,7 @@ def create_reducer(
 
 
 def get_region():
-    with open("map.geojson", "r") as f:
+    with open("../data/external/map.geojson", "r") as f:
         gj = json.load(f)
     coords = gj["features"][0]["geometry"]["coordinates"]
     region = ee.Geometry.Polygon(coords)

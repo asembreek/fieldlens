@@ -31,7 +31,7 @@ def plot_index_doy_barchart(df, index):
     plot_df["Year"] = pd.DatetimeIndex(df["Timestamp"]).year
     plt.figure(figsize=(12, 6))
     sns.lineplot(
-        data=df,
+        data=plot_df,
         x="DOY",
         y=y_column,
         hue="Year",

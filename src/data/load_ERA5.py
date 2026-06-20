@@ -5,6 +5,8 @@ import pandas as pd
 from data import utils
 
 TEMP_2M = "temperature_2m"
+TEMP_2M_MIN = "temperature_2m_min"
+TEMP_2M_MAX = "temperature_2m_max"
 SOIL_TEMP_LEVEL = "soil_temperature_level_"
 VOL_SOIL_WATER_LAYER = "volumetric_soil_water_layer_"
 SSRD = "surface_solar_radiation_downwards_sum"
@@ -43,6 +45,14 @@ def get_soil_levels_df(image, reducer_fn, variable):
 
 def get_temp_2m_df(image, reducer_fn):
     temp_2m_df = utils.im_to_df(image, TEMP_2M, reducer_fn)
+    # print(utils.im_to_df(image, TEMP_2M, reducer_fn))
+
+    temp_2m_df[TEMP_2M_MIN] = utils.im_to_df(image, TEMP_2M_MIN, reducer_fn)[
+        TEMP_2M_MIN
+    ]
+    temp_2m_df[TEMP_2M_MAX] = utils.im_to_df(image, TEMP_2M_MAX, reducer_fn)[
+        TEMP_2M_MAX
+    ]
     return temp_2m_df
 
 

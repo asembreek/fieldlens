@@ -36,7 +36,7 @@ def apply_groupby_date(i_df, *other_dfs):
         grouped = (
             df.groupby(df["Timestamp"].dt.date)
             .agg({df.columns[0]: ["mean", "std"]})
-            .fillna(0)
+            .dropna()
             .reset_index()
         )
         grouped.columns = ["Timestamp", f"{col_name}_mean", f"{col_name}_std"]

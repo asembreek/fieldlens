@@ -9,13 +9,28 @@ class NDVIClimatologyGAM:
     ERR_NOT_FITTED = (
         "The model has not been fitted. Call 'fit()' or 'gridsearch()' first."
     )
+    ERR_INTERVAL = "`position` must either be of type float in interval [0.0, 1.0], or integer equal to 1 or 0, or one of strings in ['start', 'early', 'middle', 'late', 'end']"
 
-    def __init__(self, n_splines=10, plot_shift=None):
+    _INTERVAL_POSITIONS = {
+        "start": 0.0,
+        "early": 0.25,
+        "middle": 0.5,
+        "late": 0.75,
+        "end": 1.0,
+    }
+
+    def __init__(self, n_splines=10):
         self.n_splines = n_splines
 
         self.model = None
-        self.sos = None
-        self.eos = None
+
+        # Derived DOYS
+        self._sos = None
+        self._eos = None
+        self._decay_start = None
+        self._zero_crossing = None
+        self._first_peak = None
+        self._second_peak = None
 
     @property
     def climatology(self):
@@ -36,33 +51,102 @@ class NDVIClimatologyGAM:
     def is_fitted(self):
         return self.model is not None
 
+    @property
+    def sos_interval(self):
+        return (self._zero_crossing, self._first_peak)
+
     def fit(self, doys, ndvi):
         self.model = LinearGAM(s(0, basis="cp", n_splines=self.n_splines))
         self.model.fit(doys, ndvi)
+        self._calculate_sos_eos()
 
         return self
 
     def gridsearch(self, doys, ndvi, lams=np.logspace(-5, 5, 25)):
         self.model = LinearGAM(s(0, basis="cp", n_splines=self.n_splines))
         self.model.gridsearch(doys, ndvi, lams)
+        self._calculate_sos_eos()
+
         return self
 
-    def summary(self):
+    def start_of_season(self, position="start"):
+        return self._select_interval_point(
+            left=self._zero_crossing, right=self._first_peak, position=position
+        )
+
+    def end_of_season(self):
         pass
 
-    def plot_derivatives(self, shifted=True):
+    def plot_derivatives(self, shifted=True, season_lines=True):
         self._check_is_fitted()
 
-    def plot_climatology(self, shifted=True):
+    def plot_climatology(self, shifted=True, season_lines=False):
         self._check_is_fitted()
         pass
 
-    def _set_sos_eos(self):
-        pass
+    def _calculate_sos_eos(self):
+        dy_dx = self.dy_dx
+        d2y_dx2 = self.d2y_dx2
+
+        self._decay_start = self._calculate_decay_doy(dy_dx)
+
+        # Negative-to-positive crossing of first derivative
+        self._zero_crossing = self._calculate_zero_crossing(dy_dx)
+
+        # First and second peaks of 2nd derivative
+        self._first_peak = self._calculate_first_peak(self._decay_start, d2y_dx2)
+        self._second_peak = self._calculate_second_peak(self._decay_start, d2y_dx2)
+
+    def _calculate_decay_doy(self, dy_dx):
+        for i in range(len(dy_dx) - 1):
+            if dy_dx[i] > 0 and dy_dx[i + 1] < 0:
+                return i
+
+    def _calculate_zero_crossing(self, dy_dx):
+        for i in range(len(dy_dx) - 1):
+            if dy_dx[i] < 0 and dy_dx[i + 1] > 0:
+                return i
+
+    def _calculate_first_peak(self, decay_start_doy, d2y_dx2):
+        max_deriv = -np.inf
+        first_peak = None
+        for i in range(len(d2y_dx2) - 1):
+            if i > 1 or i < decay_start_doy:
+                if d2y_dx2[i] > max_deriv:
+                    max_deriv = d2y_dx2[i]
+                    first_peak = i
+        return first_peak
+
+    def _calculate_second_peak(self, decay_start_doy, d2y_dx2):
+        max_deriv = -np.inf
+        second_peak = None
+
+        for i in range(len(d2y_dx2) - 1):
+            if i > decay_start_doy and i < 1:
+                if d2y_dx2[i] > max_deriv:
+                    max_deriv = d2y_dx2[i]
+                    second_peak = i
+        return second_peak
+
+    def _select_interval_point(self, left, right, position):
+        if isinstance(position, str):
+            if not self._INTERVAL_POSITIONS.get(position):
+                raise ValueError(self.ERR_INTERVAL)
+            position = self._INTERVAL_POSITIONS[position]
+
+        elif isinstance(position, (int, float)):
+            if not 0.0 <= position <= 1.0:
+                raise ValueError(self.ERR_INTERVAL)
+        else:
+            raise TypeError(self.ERR_INTERVAL)
+
+        return round(left + position * (right - left))
 
     def _check_is_fitted(self):
         if not self.is_fitted:
             raise RuntimeError(self.ERR_NOT_FITTED)
+
+    # Shifting methods
 
     @staticmethod
     def shift_doy(d, shift):
@@ -73,3 +157,8 @@ class NDVIClimatologyGAM:
     def inv_shift_doy(d, shift):
         inv_shifted_doy = (d + shift - 1) % 365
         return inv_shifted_doy
+
+    def summary(self):
+        model_rows = []
+        event_rows = []
+        metric_rows = []

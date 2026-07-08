@@ -1,2 +1,2 @@
-# phenohmm - Maize crop anomaly detection Hidden Markov Model 
+# fieldlens - Crop anomaly detection and forecasting model 
 

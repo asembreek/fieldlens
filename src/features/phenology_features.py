@@ -4,35 +4,6 @@ from models import NDVIClimatologyGAM as shift
 from data import utils
 
 
-class RollingFeatures:
-    def __init__(self, columns, windows=(7, 14)):
-        self.columns = columns
-        self.windows = windows
-
-    def fit(self, X):
-        return self
-
-    def transform(self, X):
-        df = X.sort_values("Timestamp").copy()
-
-        for c in self.columns:
-            if pd.api.types.is_float_dtype(df[c]):
-                s = df[c]
-
-                for window in self.windows:
-                    roll = s.rolling(window=window, min_periods=window)
-
-                    df[f"{c}_{window}D_mean"] = roll.mean()
-                    # features[f"{c}_{window}D_std"] = roll.std()
-                    df[f"{c}_{window}D_sum"] = roll.sum()
-                    # features[f"{c}_{window}D_median"] = roll.median()
-
-        return df
-
-    def fit_transform(self, X):
-        return self
-
-
 class PhenologyFeatures:
     def __init__(
         self,
@@ -151,71 +122,3 @@ class PhenologyFeatures:
             df["in_season"] == 0, "Off-Season", df["Growth_Stage"]
         )
         return df
-
-
-class SoilFeatures:
-    def __init__(
-        self,
-        root_weighted_moisture=True,
-        shallow_temperature=True,
-        moisture_pca=True,
-        temperature_pca=True,
-    ):
-        self.root_weighted_moisture = root_weighted_moisture
-        self.shallow_temperature = shallow_temperature
-        self.moisture_pca = moisture_pca
-        self.temperature_pca = temperature_pca
-
-    def fit(self, X):
-        pass
-
-    def transform(self, X):
-        pass
-
-    def fit_transform(self, X):
-        pass
-
-    def _do_moisture_layers(self, X):
-        required = {"Timestamp", "Growth_Stage"}
-
-        missing = required - set(X.columns)
-        if missing and self.root_weighted_moisture:
-            raise ValueError(
-                f"Missing required columns: {missing}. "
-                "Run PhenologyFeatures(growth_stages=True) first."
-            )
-
-        df = X.copy()
-        contains_dates = True
-        if "doy" not in X.columns:
-            df = utils.add_date_info(df)
-
-        prefix = "volumetric_soil_water_layer"
-        layers = range(1, 5)
-        df = df[[f"{prefix}_{l}" for l in layers]].copy()
-        df[["Growth_Stage", "doy", "Timestamp"]] = X[
-            ["Growth_Stage", "doy", "Timestamp"]
-        ].copy()
-
-        if not contains_dates:
-            df = df.drop("doy", axis=1)
-        return df
-
-
-class TemporalFeatures:
-    def __init__(self, cyclic_doy=True):
-        self.cyclic_doy = cyclic_doy
-
-    def fit(self, X):
-        return self
-
-    def transform(self, X):
-        pass
-
-    def fit_transform(self, X):
-        return self
-
-    def _add_cyclic_doy(self, X):
-        X["DOY_sin"] = np.sin(2 * np.pi * X["DOY"] / 365.25)
-        X["DOY_cos"] = np.cos(2 * np.pi * X["DOY"] / 365.25)
-        return X

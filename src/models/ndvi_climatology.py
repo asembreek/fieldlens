@@ -196,7 +196,7 @@ class NDVIClimatologyGAM:
         else:
             shift = 0
 
-        x_labels = self.shift_doy(self.x_ticks, shift)
+        x_labels = self.inv_shift_doy(self.x_ticks, shift)
         fitted_doys = self.shift_doy(self._doys.flatten(), shift)
         plot_doys = self.shift_doy(self.doys.flatten(), shift)
 

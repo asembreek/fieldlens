@@ -178,3 +178,6 @@ cython_debug/
 
 # Geoanalysis files
 *.geojson
+
+# test notebooks
+Untitled.ipynb

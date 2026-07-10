@@ -180,4 +180,4 @@ cython_debug/
 *.geojson
 
 # test notebooks
-Untitled.ipynb
+notebooks/Untitled.ipynb

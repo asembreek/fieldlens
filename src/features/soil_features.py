@@ -1,7 +1,22 @@
 import numpy as np
 import pandas as pd
-from models import NDVIClimatologyGAM as shift
+
 from data import utils
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+
+# soil_features.py
+
+DEFAULT_PCA_CONFIG = {
+    "soil_temp": {
+        "columns": [f"soil_temperature_layer_{l}" for l in range(1, 4)],
+        "n_components": 1,
+    },
+    "soil_water": {
+        "columns": [f"volumetric_soil_water_layer_{l}" for l in range(1, 3)],
+        "n_components": 1,
+    },
+}
 
 
 class SoilFeatures:
@@ -35,20 +50,24 @@ class SoilFeatures:
         shallow_temperature=True,
         moisture_pca=True,
         temperature_pca=True,
+        pca_config=None,
     ):
         self.root_weighted_moisture = root_weighted_moisture
         self.shallow_temperature = shallow_temperature
         self.moisture_pca = moisture_pca
         self.temperature_pca = temperature_pca
+        self.pca_config = DEFAULT_PCA_CONFIG if pca_config is None else pca_config
 
     def fit(self, X):
-        pass
+        return self
 
     def transform(self, X):
-        pass
+        return df
 
     def fit_transform(self, X):
-        pass
+        self.fit(X)
+        df = self.transform(X)
+        return df
 
     def _do_moisture_layers(self, X):
         required = {"Timestamp", "Growth_Stage"}

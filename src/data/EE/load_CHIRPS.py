@@ -1,6 +1,6 @@
 import ee
 
-from data import utils
+import ee_utils as utils
 
 
 def get_chirps_data(aoi, i_date, f_date):

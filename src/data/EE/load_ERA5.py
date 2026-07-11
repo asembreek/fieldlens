@@ -2,7 +2,7 @@ import ee
 import numpy as np
 import pandas as pd
 
-from data import utils
+import ee_utils as utils
 
 TEMP_2M = "temperature_2m"
 TEMP_2M_MIN = "temperature_2m_min"

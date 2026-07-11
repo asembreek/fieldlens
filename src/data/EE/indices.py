@@ -1,7 +1,7 @@
 import ee
 import pandas as pd
 
-from data import utils
+import ee_utils as utils
 
 NDVI = "NDVI"  # Normalized Difference Vegetation Index
 NDRE = "NDRE"  # Normalized Difference Red Edge Index

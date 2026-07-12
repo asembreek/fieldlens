@@ -35,4 +35,8 @@ class DatasetLoader:
     def _load_df(self, dir):
         df = pd.read_csv(dir, index_col=0)
         df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+        categorical_cols = ["in_season", "Growth_Stage"]
+        for col in categorical_cols:
+            if col in df.columns:
+                df[col] = df[col].astype("category")
         return df

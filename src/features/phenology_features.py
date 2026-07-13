@@ -101,8 +101,10 @@ class PhenologyFeatures:
             df["doy"] >= self.start_of_season, df["year"], df["year"] - 1
         )
         df["in_season"] = (
-            (df["shifted_doy"] >= shifted_sos) & (df["shifted_doy"] <= shifted_eos)
-        ).astype(int)
+            ((df["shifted_doy"] >= shifted_sos) & (df["shifted_doy"] <= shifted_eos))
+            .astype(int)
+            .astype("category")
+        )
         df = df.sort_values(by=["Ag_year", "shifted_doy"])
 
         return df

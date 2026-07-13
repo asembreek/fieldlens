@@ -42,8 +42,8 @@ class DatasetScalerSplitter:
         return self.transform(X)
 
     def train_test_split_transform(self, X):
-        X_train = X.loc[:, self.train_mask]
-        X_test = X.loc[:, self.test_mask]
+        X_train = X.loc[self.train_mask, :]
+        X_test = X.loc[self.test_mask, :]
 
         X_train_scaled = self.transform(X_train)
         X_test_scaled = self.transform(X_test)
@@ -55,10 +55,10 @@ class DatasetScalerSplitter:
             X_test_scaled, columns=self.features_in_, index=X_test.index
         )
         X_train_df = pd.concat(
-            [X_train_df, X[self.train_mask, self.passthrough_cols]], axis=1
+            [X_train_df, X.loc[self.train_mask, self.passthrough_cols]], axis=1
         )
         X_test_df = pd.concat(
-            [X_test_df, X[self.test_mask, self.passthrough_cols]], axis=1
+            [X_test_df, X.loc[self.test_mask, self.passthrough_cols]], axis=1
         )
 
         return X_train_df, X_test_df

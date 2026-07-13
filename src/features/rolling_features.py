@@ -13,6 +13,8 @@ class RollingFeatures:
     def transform(self, X):
         df = X.sort_values("Timestamp").copy()
 
+        roll_stats = {}
+
         for c in self.columns:
             if pd.api.types.is_float_dtype(df[c]):
                 s = df[c]
@@ -20,12 +22,13 @@ class RollingFeatures:
                 for window in self.windows:
                     roll = s.rolling(window=window, min_periods=window)
 
-                    df[f"{c}_{window}D_mean"] = roll.mean()
+                    roll_stats[f"{c}_{window}D_mean"] = roll.mean()
                     # features[f"{c}_{window}D_std"] = roll.std()
-                    df[f"{c}_{window}D_sum"] = roll.sum()
+                    roll_stats[f"{c}_{window}D_sum"] = roll.sum()
                     # features[f"{c}_{window}D_median"] = roll.median()
 
-        return df
+        roll_df = pd.DataFrame(roll_stats, index=df.index)
+        return pd.concat([df, roll_df], axis=1)
 
     def fit_transform(self, X):
         return self

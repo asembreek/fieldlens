@@ -4,7 +4,6 @@ import pandas as pd
 
 
 class DatasetBuilder:
-    # TODO: method chaining for building X_norm and X_anom as in jupyter notebook
     def __init__(self, init_df=None):
         self.df = init_df.copy() if init_df is not None else None
 
@@ -40,13 +39,16 @@ class DatasetBuilder:
         self.df = self.df.merge(spectral[spectral_features], on="Timestamp", how="left")
         return self
 
-    def interpolate(self, val_columns=None):
+    def interpolate(self, val_columns=None, dropna=True):
         val_columns = self.df.columns if val_columns is None else val_columns
         self.df.loc[:, val_columns] = (
             self.df[val_columns]
             .interpolate(method="pchip", limit_area="inside")
             .bfill()
         )
+        if dropna:
+            self.df = self.df.dropna()
+
         self._interpolated = list(val_columns)
         return self
 
@@ -70,7 +72,7 @@ class DatasetBuilder:
             raise ValueError(f"{x} is not a valid column in 'data'.")
         if y not in self._interpolated:
             raise ValueError(
-                f"Column '{y}' was not interpolated. Pleasure only select interpolated features."
+                f"Column '{y}' was not interpolated. Only select interpolated features."
             )
 
         plt.figure(figsize=(12, 6))

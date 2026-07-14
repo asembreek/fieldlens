@@ -34,8 +34,14 @@ class DatasetScalerSplitter:
     def transform(self, X):
         X = X.copy()
 
-        X[self.features_in_] = self.scaler.transform(X[self.features_in_])
-        return X
+        transformed = self.scaler.transform(X[self.features_in_])
+        transformed_df = pd.DataFrame(
+            transformed, columns=self.features_in_, index=X.index
+        )
+        transformed_df = pd.concat(
+            [transformed_df, X.loc[:, self.passthrough_cols]], axis=1
+        )
+        return transformed_df
 
     def fit_transform(self, X):
         self.fit(X)

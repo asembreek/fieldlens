@@ -1,11 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.mixture import GaussianMixture
 
 
-class BaseGMM:
+class LikelihoodGMM:
     def __init__(
-        self, n_components, covariance_type, max_iter, reg_covar, random_state=42
+        self,
+        n_components=1,
+        covariance_type="full",
+        max_iter=100,
+        reg_covar=1e-06,
+        random_state=None,
+        n_init=1,
     ):
 
         self.n_components = n_components
@@ -13,6 +20,7 @@ class BaseGMM:
         self.max_iter = max_iter
         self.reg_covar = reg_covar
         self.random_state = random_state
+        self.n_init = n_init
 
         self.is_cv_fitted = False
 
@@ -31,6 +39,7 @@ class BaseGMM:
             max_iter=self.max_iter,
             reg_covar=self.reg_covar,
             random_state=self.random_state,
+            n_init=self.n_init,
         )
 
         self.model.fit(X)
@@ -53,13 +62,15 @@ class BaseGMM:
         components,
         covariance_types=("full", "tied", "diag", "spherical"),
         n_init=10,
+        reg_covar=None,
     ):
-        self._bic_scores = np.zeros(shape=(len(covariance_types), len(n_components)))
+        self._bic_scores = np.zeros(shape=(len(covariance_types), len(components)))
 
         best_bic = np.inf
         best_model = None
         best_covariance = None
         best_components = None
+        reg_covar = self.reg_covar if reg_covar is None else reg_covar
 
         for i, cov in enumerate(covariance_types):
             for j, k in enumerate(components):
@@ -67,7 +78,7 @@ class BaseGMM:
                     n_components=k,
                     covariance_type=cov,
                     max_iter=self.max_iter,
-                    reg_covar=self.reg_covar,
+                    reg_covar=reg_covar,
                     random_state=self.random_state,
                     n_init=n_init,
                 )
@@ -84,6 +95,9 @@ class BaseGMM:
         self.model = best_model
         self.n_components = best_components
         self.covariance_type = best_covariance
+        self.reg_covar = reg_covar
+        self.n_init = n_init
+
         self.is_cv_fitted = True
 
         self._covariance_types = covariance_types
@@ -136,9 +150,28 @@ class BaseGMM:
     def plot_yearly_likelihood(self):
         pass
 
-    def plot_likelihood_kde(self):
-        pass
+    def plot_likelihood_kde(self, *X, labels):
+        n_graphs = len(X)
+        if len(labels) != n_graphs:
+            raise ValueError(
+                "Ensure number of labels matches number of passed datasets."
+            )
+
+        plt.figure(figsize=(10, 6))
+        plt.title(f"Log-likelihood densities for {n_graphs} datasets.")
+        for i in range(n_graphs):
+            scores = self.score_samples(X[i])
+            sns.kdeplot(
+                scores,
+                label=labels[i],
+                fill=True,
+                alpha=0.5,
+            )
+        plt.ylabel("Density")
+        plt.xlabel("log-Likelihood")
+        plt.tight_layout()
+        plt.legend()
 
 
-class ForecastingGMM(BaseGMM):
+class ForecastingGMM(LikelihoodGMM):
     pass

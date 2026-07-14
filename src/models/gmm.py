@@ -174,4 +174,82 @@ class LikelihoodGMM:
 
 
 class ForecastingGMM(LikelihoodGMM):
-    pass
+    def __init__(
+        self,
+        window_size,
+        horizon=1,
+        n_components=1,
+        covariance_type="full",
+        max_iter=100,
+        reg_covar=1e-06,
+        random_state=None,
+        n_init=1,
+    ):
+        super().__init__(
+            n_components=n_components,
+            covariance_type=covariance_type,
+            max_iter=max_iter,
+            reg_covar=reg_covar,
+            random_state=random_state,
+            n_init=n_init,
+        )
+        self.window_size = window_size
+        self.horizon = horizon
+
+    def fit(self, X):
+        X_embed = self._delay_embed(X)
+        super().fit(X_embed)
+        return self
+
+    def forecast(self, X, responses):
+        if X.shape[0] <= self.horizon:
+            raise ValueError(
+                f"Ensure X has a row count greater than forecast horizon {self.horizon}"
+            )
+        for r in list(responses):
+            if r not in X.columns:
+                raise ValueError(f"{r} not a valid column in passed dataset.")
+        response_indices = np.array([X.columns.get_loc(r) for r in responses])
+
+        X_forecast = X.to_numpy()
+        pred_window = self._get_pred_window(X_forecast)
+        future_mask = self._get_future_mask(X_forecast, response_indices)
+        past_mask = self._get_past_mask(X_forecast)
+
+        x_past = pred_window[0, past_mask]
+
+    def _get_pred_window(self, X_forecast):
+        lookback = self.window_size - self.horizon
+        known_obs = X_forecast[-lookback:]
+        temp = np.full((self.horizon, X_forecast.shape[1]), np.nan)
+        return np.vstack([known_obs, temp]).reshape(1, -1)
+
+    def _get_future_mask(self, X_forecast, response_indices):
+        """
+        Creates mask that only selects features defined in 'responses' in 'self.forecast()'. Avoids predicting unnecessary predictors.
+        """
+
+        future_mask = np.full(
+            shape=(self.window_size, X_forecast.shape[1]), fill_value=False, dtype=bool
+        )
+        future_mask[self.horizon :, response_indices] = True
+        return future_mask.flatten()
+
+    def _get_past_mask(self, X_forecast):
+        past_mask = np.full(shape=(d, X_test.shape[1]), fill_value=False, dtype=bool)
+        past_mask[: self.horizon, :] = True
+        return past_mask.flatten()
+
+    def _delay_embed(self, X):
+        X = np.asarray(X)
+
+        n, p = X.shape
+
+        embedded = np.empty(
+            shape=(n - self.window_size + 1, p * self.window_size), dtype=X.dtype
+        )
+
+        for i in range(n - self.window_size + 1):
+            embedded[i] = X[i : i + self.window_size].reshape(-1)
+
+        return embedded

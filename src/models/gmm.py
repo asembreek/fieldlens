@@ -206,15 +206,14 @@ class ForecastingGMM(LikelihoodGMM):
         self.scaler = scaler
         self.feature_names_in_ = None
 
-        self._mse_scores = None
-
     def fit(self, X):
         self.feature_names_in_ = X.columns
         X_embed = self._delay_embed(X)
+        print(X_embed.shape)
         super().fit(X_embed)
         return self
 
-    def forecast(self, X, responses):
+    def forecast(self, X, responses, rescale=True):
         if X.shape[0] < self.horizon:
             raise ValueError(
                 f"Ensure X has a row count greater than forecast horizon {self.horizon}"
@@ -235,57 +234,10 @@ class ForecastingGMM(LikelihoodGMM):
         cond_exp = self._calculate_conditional_exp(past_mask, future_mask, x_past)
         y_hat = np.dot(posteriors, cond_exp)
         forecasts = y_hat.reshape(self.horizon, len(responses))
-        unscaled_forecasted = self._rescale_forecasts(responses, forecasts)
+        if rescale:
+            forecasts = self._rescale_forecasts(responses, forecasts)
 
-        return pd.DataFrame(unscaled_forecasted, columns=responses)
-
-    def cv_fit(
-        self,
-        X,
-        validation,
-        components,
-    ):
-
-        # reg_covar = reg_covar if reg_covar is not None else self.reg_covar
-        self._mse_scores = np.zeros(shape=(len(components)))
-
-        for comp_i, k in enumerate(components):
-            gmm = ForecastingGMM(
-                window_size=self.window_size,
-                scaler=self.scaler,
-                horizon=12,
-                n_components=k,
-                covariance_type="full",
-                max_iter=self.max_iter,
-                reg_covar=self.reg_covar,
-                random_state=self.random_state,
-                n_init=self.n_init,
-            )
-            gmm.fit(X)
-
-            mse_sum = 0
-            eval_count = 0
-
-            final_start_i = len(validation) - gmm.window_size
-
-            for i in range(final_start_i):
-                slide = validation.iloc[i : i + gmm.window_size]
-                x_past = slide.iloc[: -gmm.horizon, :]
-                true_vals = slide.iloc[-gmm.horizon :, :]
-
-                pred = gmm.forecast(x_past, responses=["NDVI_mean"])
-                target_true = true_vals["NDVI_mean"]
-
-                mse_sum += mean_squared_error(target_true, pred)
-                eval_count += 1
-            self._mse_scores[comp_i] = (
-                mse_sum / eval_count if eval_count > 0 else np.inf
-            )
-        best_k_i = np.argmin(self._mse_scores)
-        best_k = components[best_k_i]
-        best_mse = self._mse_scores[best_k_i]
-        print(f"components:  {best_k}")
-        print(f"train MSE:  {best_mse:.6f}")
+        return pd.DataFrame(forecasts, columns=responses)
 
     def _delay_embed(self, X):
         X = np.asarray(X)
@@ -315,20 +267,25 @@ class ForecastingGMM(LikelihoodGMM):
         future_mask = np.full(
             shape=(self.window_size, X_forecast.shape[1]), fill_value=False, dtype=bool
         )
-        future_mask[self.horizon :, response_indices] = True
+        future_mask[self.window_size - self.horizon :, response_indices] = True
         return future_mask.flatten()
 
     def _get_past_mask(self, X_forecast):
         past_mask = np.full(
             shape=(self.window_size, X_forecast.shape[1]), fill_value=False, dtype=bool
         )
-        past_mask[: self.horizon, :] = True
+        past_mask[: self.window_size - self.horizon, :] = True
         return past_mask.flatten()
 
     def _calculate_past_mixture_coeff(self, past_mask, future_mask, x_past):
         log_components = np.empty(shape=self.n_components)
+
+        if self.covariance_type == "tied":
+            cov_PP = self.model.covariances_[np.ix_(past_mask, past_mask)]
+
         for k in range(self.n_components):
-            cov_PP = self.model.covariances_[k][np.ix_(past_mask, past_mask)]
+            if self.covariance_type == "full":
+                cov_PP = self.model.covariances_[k][np.ix_(past_mask, past_mask)]
             mu_P = self.model.means_[k, past_mask]
 
             log_pdf = multivariate_normal(mu_P, cov_PP, allow_singular=True).logpdf(
@@ -345,9 +302,14 @@ class ForecastingGMM(LikelihoodGMM):
         # matrix/vector of 'predicted' y_i corresponding to component k
         y_ik = np.empty((self.n_components, future_mask.sum()))
 
+        if self.covariance_type == "tied":
+            cov_PP = self.model.covariances_[np.ix_(past_mask, past_mask)]
+            cov_FP = self.model.covariances_[np.ix_(future_mask, past_mask)]
+
         for k in range(self.n_components):
-            cov_PP = self.model.covariances_[k][np.ix_(past_mask, past_mask)]
-            cov_FP = self.model.covariances_[k][np.ix_(future_mask, past_mask)]
+            if self.covariance_type != "tied":
+                cov_PP = self.model.covariances_[k][np.ix_(past_mask, past_mask)]
+                cov_FP = self.model.covariances_[k][np.ix_(future_mask, past_mask)]
 
             mu_P = self.model.means_[k, past_mask]
             mu_F = self.model.means_[k, future_mask]
@@ -366,9 +328,84 @@ class ForecastingGMM(LikelihoodGMM):
             if s in responses:
                 indices.append(i)
 
-        temp = np.zeros(
-            shape=(self.window_size - self.horizon, len(self.scaler.feature_names_in_))
-        )
+        temp = np.zeros(shape=(forecasts.shape[0], len(self.scaler.feature_names_in_)))
         temp[:, indices] = forecasts
         unscaled = self.scaler.inverse_transform(temp)
         return unscaled[:, indices]
+
+
+class ForecastingGMMSelector:
+    def __init__(
+        self,
+        window_size,
+        scaler_splitter,
+        covariance_type="full",
+        max_iter=100,
+        reg_covar=1e-06,
+        random_state=42,
+        n_init=1,
+        horizon=12,
+    ):
+        self.window_size = window_size
+        self.scaler_splitter = scaler_splitter
+        self.covariance_type = covariance_type
+        self.max_iter = max_iter
+        self.reg_covar = reg_covar
+        self.random_state = random_state
+        self.n_init = n_init
+        self.horizon = horizon
+
+        self._mse_scores = None
+        self.best_model_ = None
+        self.best_components_ = None
+
+    def cv_fit(self, scaled_X, scaled_validation, components):
+
+        # reg_covar = reg_covar if reg_covar is not None else self.reg_covar
+        self._mse_scores = np.zeros(shape=(len(components)))
+        models = []
+
+        for comp_i, k in enumerate(components):
+            gmm = ForecastingGMM(
+                window_size=self.window_size,
+                scaler=self.scaler_splitter.scaler,
+                horizon=self.horizon,
+                n_components=k,
+                covariance_type=self.covariance_type,
+                max_iter=self.max_iter,
+                reg_covar=self.reg_covar,
+                random_state=self.random_state,
+                n_init=self.n_init,
+            )
+            gmm.fit(scaled_X)
+            models.append(gmm)
+
+            mse_sum = 0
+            eval_count = 0
+
+            final_start_i = len(scaled_validation) - gmm.window_size
+
+            for i in range(final_start_i):
+                slide = scaled_validation.iloc[i : i + gmm.window_size]
+                x_past = slide.iloc[: -gmm.horizon, :]
+                scaled_true_vals = slide.iloc[-gmm.horizon :, :]
+
+                pred = gmm.forecast(x_past, responses=["NDVI_mean"], rescale=True)
+                target_scaled_true_vals = scaled_true_vals[["NDVI_mean"]]
+
+                target_true = self.scaler_splitter.inverse_transform_partial(
+                    target_scaled_true_vals
+                )
+                mse_sum += mean_squared_error(target_true, pred)
+                eval_count += 1
+            self._mse_scores[comp_i] = (
+                mse_sum / eval_count if eval_count > 0 else np.inf
+            )
+            print(self._mse_scores[comp_i])
+
+        best_i = np.argmin(self._mse_scores)
+        self.best_components_ = components[best_i]
+        self.best_model_ = models[best_i]
+        best_mse = self._mse_scores[best_i]
+        print(f"components:  {self.best_components_}")
+        print(f"test MSE:  {best_mse:.6f}")

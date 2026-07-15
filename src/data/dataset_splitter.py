@@ -43,6 +43,17 @@ class DatasetScalerSplitter:
         )
         return transformed_df
 
+    def inverse_transform(self, X):
+        X = X.copy()
+        transformed = self.scaler.inverse_transform(X[self.features_in_])
+        transformed_df = pd.DataFrame(
+            transformed, columns=self.features_in_, index=X.index
+        )
+        transformed_df = pd.concat(
+            [transformed_df, X.loc[:, self.passthrough_cols]], axis=1
+        )
+        return transformed_df
+
     def fit_transform(self, X):
         self.fit(X)
         return self.transform(X)
@@ -72,6 +83,19 @@ class DatasetScalerSplitter:
     def fit_train_test_split_transform(self, X):
         self.fit(X)
         return self.train_test_split_transform(X)
+
+    def inverse_transform_partial(self, X):
+        indices = []
+
+        for i, s in enumerate(self.scaler.feature_names_in_):
+            if s in X.columns:
+                indices.append(i)
+
+        temp = np.zeros(shape=(X.shape[0], len(self.scaler.feature_names_in_)))
+
+        temp[:, indices] = X.values
+        unscaled = self.scaler.inverse_transform(temp)
+        return unscaled[:, indices]
 
     def _remove_columns(self, X, columns):
         X = X.copy()

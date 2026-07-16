@@ -109,6 +109,11 @@ class NDVIClimatologyGAM:
 
         return self
 
+    def predict(self, doy, shifted=True):
+        shifted_doy = self.shift_doy(doy, self._sos)
+        pred = self.model.predict(shifted_doy)
+        return pred
+
     def start_of_season(self, position="start"):
         self._sos = self._select_interval_point(
             left=self._zero_crossing, right=self._first_peak, position=position

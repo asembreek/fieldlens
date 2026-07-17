@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import seaborn as sns
 
 from sklearn.mixture import GaussianMixture
@@ -34,6 +35,7 @@ class LikelihoodGMM:
         self._bic_scores = None
         self._covariance_types = None
         self._components = None
+        self._copy = None
 
     @property
     def is_fitted(self):
@@ -132,26 +134,28 @@ class LikelihoodGMM:
                 "Model not fitted with Cross Validation. Run 'cv_fit' first."
             )
 
-        plt.figure(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=(10, 6))
         for i, cov in enumerate(self._covariance_types):
-            plt.plot(
+            ax.plot(
                 self._components,
                 self._bic_scores[i],
                 label=f"{cov} covariance",
                 marker="o",
             )
 
-        plt.xlabel("Number of Components (k)")
-        plt.ylabel("BIC Score")
-        plt.title("GMM Model Selection via BIC")
-        plt.axvline(
+        ax.set_xlabel("Number of Components (k)")
+        ax.set_ylabel("BIC Score")
+        ax.set_title("GMM Model Selection via BIC")
+        ax.axvline(
             x=self.n_components,
             color="red",
             linestyle="--",
             label=f"Best k ({self.n_components})",
         )
-        plt.legend()
-        plt.grid(True)
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax.legend()
+        ax.grid(True)
+        plt.tight_layout()
         plt.show()
 
     def plot_yearly_likelihood(self):
@@ -166,6 +170,7 @@ class LikelihoodGMM:
 
         plt.figure(figsize=(10, 6))
         plt.title(f"Log-likelihood densities for {n_graphs} datasets.")
+
         for i in range(n_graphs):
             scores = self.score_samples(X[i])
             sns.kdeplot(
@@ -174,6 +179,7 @@ class LikelihoodGMM:
                 fill=True,
                 alpha=0.5,
             )
+
         plt.ylabel("Density")
         plt.xlabel("log-Likelihood")
         plt.tight_layout()

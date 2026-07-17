@@ -5,12 +5,12 @@ import pandas as pd
 
 class DatasetBuilder:
     def __init__(self, init_df=None):
-        self.df = init_df.copy() if init_df is not None else None
+        self.df = init_df.copy() if init_df is not None else pd.DataFrame()
 
     def merge_non_spectral(
         self,
         non_spectral,
-        engineered,
+        engineered=None,
         non_spectral_features=None,
         engineered_features=None,
     ):
@@ -20,13 +20,17 @@ class DatasetBuilder:
             else non_spectral_features
         )
 
-        engineered_features = (
-            engineered.columns if engineered_features is None else engineered_features
-        )
-
-        self.df = non_spectral[non_spectral_features].merge(
-            engineered[engineered_features], on="Timestamp"
-        )
+        if engineered:
+            engineered_features = (
+                engineered.columns
+                if engineered_features is None
+                else engineered_features
+            )
+            self.df = non_spectral[non_spectral_features].merge(
+                engineered[engineered_features], on="Timestamp"
+            )
+        else:
+            self.df = non_spectral[non_spectral_features].copy()
 
         self._interpolated = None
 
@@ -36,7 +40,13 @@ class DatasetBuilder:
         spectral_features = (
             spectral.columns if spectral_features is None else spectral_features
         )
-        self.df = self.df.merge(spectral[spectral_features], on="Timestamp", how="left")
+        if self.df is not None:
+            self.df = self.df.merge(
+                spectral[spectral_features], on="Timestamp", how="left"
+            )
+        else:
+            self.df = spectral[spectral_features].copy()
+
         return self
 
     def interpolate(self, val_columns=None, dropna=True):
@@ -54,6 +64,14 @@ class DatasetBuilder:
 
     def drop_columns(self, columns):
         self.df = self.df.drop(columns, axis=1)
+        return self
+
+    def select_columns(self, columns):
+        for c in columns:
+            if c not in self.df.columns or self.df is None:
+                raise ValueError(f"{c} not a valid column in dataset.")
+
+        self.df = self.df[columns]
         return self
 
     def build(self):

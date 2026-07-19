@@ -15,9 +15,9 @@ class PhenologyFeatures:
         start_of_season,
         end_of_season,
         base_temp=10,
-        growth_stages=True,
-        cumulative_gdd=True,
-        season_markers=True,
+        growth_stages=False,
+        cumulative_gdd=False,
+        season_markers=False,
     ):
         self.start_of_season = start_of_season
         self.end_of_season = end_of_season
@@ -51,8 +51,15 @@ class PhenologyFeatures:
         df = self._add_cumulative_gdd(df)
         df = self._add_growth_stages(df)
 
+        if not self.growth_stages:
+            df = df.drop("Growth_Stage", axis=1)
+        if not self.cumulative_gdd:
+            df = df.drop(["cumulative_GDD", "GDD"], axis=1)
+        if not self.season_markers:
+            df = df.drop(["Ag_year", "in_season"], axis=1)
         if not contains_dates:
             df = df.drop(["doy", "year"], axis=1)
+
         df = df.drop("shifted_doy", axis=1)
         return df
 
@@ -60,7 +67,7 @@ class PhenologyFeatures:
         return self.transform(X)
 
     def plot_growth(
-        self, X, year=None, growth_stages=True, shifted=True, all_years=True
+        self, X, year=None, growth_stages=True, shifted=True, all_years=False
     ):
         if not all_years and year is None:
             raise TypeError("Missing `year` parameter if `all_years=False`.")
@@ -95,8 +102,7 @@ class PhenologyFeatures:
         df = X.copy()
         shifted_sos = shifter.shift_doy(self.start_of_season, self.start_of_season)
         shifted_eos = shifter.shift_doy(self.end_of_season, self.start_of_season)
-        print(shifted_sos)
-        print(shifted_eos)
+
         df["Ag_year"] = np.where(
             df["doy"] >= self.start_of_season, df["year"], df["year"] - 1
         )

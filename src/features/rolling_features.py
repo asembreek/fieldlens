@@ -31,4 +31,5 @@ class RollingFeatures:
         return pd.concat([df, roll_df], axis=1)
 
     def fit_transform(self, X):
-        return self
+        self.fit(X)
+        return self.transform(X)

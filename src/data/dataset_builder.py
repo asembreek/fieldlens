@@ -5,7 +5,7 @@ import pandas as pd
 
 class DatasetBuilder:
     def __init__(self, init_df=None):
-        self.df = init_df.copy() if init_df is not None else pd.DataFrame()
+        self.df = init_df.copy() if init_df is not None else None
 
     def merge_non_spectral(
         self,
@@ -20,17 +20,22 @@ class DatasetBuilder:
             else non_spectral_features
         )
 
-        if engineered:
+        if self.df is not None:
+            self.df = self.df.merge(
+                non_spectral[non_spectral_features], on="Timestamp", how="left"
+            )
+        else:
+            self.df = non_spectral[non_spectral_features].copy()
+
+        if engineered is not None:
             engineered_features = (
                 engineered.columns
                 if engineered_features is None
                 else engineered_features
             )
-            self.df = non_spectral[non_spectral_features].merge(
-                engineered[engineered_features], on="Timestamp"
+            self.df = self.df.merge(
+                engineered[engineered_features], on="Timestamp", how="left"
             )
-        else:
-            self.df = non_spectral[non_spectral_features].copy()
 
         self._interpolated = None
 

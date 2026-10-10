@@ -69,6 +69,50 @@ class ForecastingGMM(LikelihoodGMM):
 
         return pd.DataFrame(forecasts, columns=responses)
 
+    def forecast_dist(self, X, responses, rescale=True, level=0.9):
+        if self.covariance_type not in ("full", "tied"):
+            raise ValueError("forecast_dist supports covariance_type 'full' or 'tied'.")
+        if X.shape[0] < self.horizon:
+            raise ValueError(
+                f"Ensure X has a row count greater than forecast horizon {self.horizon}"
+            )
+
+        responses = list(responses)
+        for r in responses:
+            if r not in X.columns:
+                raise ValueError(f"{r} not a valid column in passed dataset.")
+
+        response_indices = np.array([X.columns.get_loc(r) for r in responses])
+
+        # the future mask flattens in dataset-column order, so work in that order
+        ordered = [X.columns[j] for j in np.sort(response_indices)]
+ 
+        X_forecast = X.to_numpy()
+        pred_window = self._get_pred_window(X_forecast)
+        future_mask = self._get_future_mask(X_forecast, response_indices)
+        past_mask = self._get_past_mask(X_forecast)
+        x_past = pred_window[0, past_mask]
+ 
+        post_weights = self._calculate_past_mixture_coeff(past_mask, future_mask, x_past)
+        mu, var = self._calculate_conditional_moments(past_mask, future_mask, x_past)
+ 
+        mean = post_weights @ mu
+        var_mix = post_weights @ (var + (mu - mean) ** 2)
+
+        shape = (self.horizon, len(ordered))
+        mean, sd = mean.reshape(shape), np.sqrt(var_mix).reshape(shape)
+
+        if rescale:
+            mean_r = self._rescale_forecasts(ordered, mean)
+            sd = np.abs(self._rescale_forecasts(ordered, mean + sd) - mean_r)
+            mean = mean_r
+
+        return {
+            name: pd.DataFrame(a, columns=ordered)[responses]
+            for name, a in (("mean", mean), ("std", sd))
+        }
+
+
     def _delay_embed(self, X):
         X = np.asarray(X)
 
@@ -151,6 +195,25 @@ class ForecastingGMM(LikelihoodGMM):
 
         return y_ik
 
+    def _calculate_conditional_moments(self, past_mask, future_mask, x_past):
+        mu = np.empty((self.n_components, future_mask.sum()))
+        sigma = np.empty((self.n_components, future_mask.sum()))
+
+        for k in range(self.n_components):
+            cov = self.model.covariances_ if self.covariance_type == "tied" else self.model.covariances_[k]
+
+            cov_PP = cov[np.ix_(past_mask, past_mask)]
+            cov_FP = cov[np.ix_(future_mask, past_mask)]
+            cov_FF = cov[np.ix_(future_mask, future_mask)]
+ 
+            A = np.linalg.solve(cov_PP, cov_FP.T)  # (P, F)
+            resid = x_past - self.model.means_[k, past_mask]
+            mu[k] = self.model.means_[k, future_mask] + A.T @ resid
+            sigma[k] = np.diag(cov_FF - cov_FP @ A)
+
+        return mu, np.maximum(sigma, 0.0)
+
+
     def _rescale_forecasts(self, responses, forecasts):
         indices = []
 
@@ -208,6 +271,7 @@ class ForecastingGMMSelector:
         models = []
 
         for comp_i, k in enumerate(components):
+
             gmm = ForecastingGMM(
                 window_size=self.window_size,
                 scaler=self.scaler_splitter.scaler,
@@ -227,7 +291,7 @@ class ForecastingGMMSelector:
 
             eval_count = 0
 
-            final_start_i = len(scaled_validation) - gmm.window_size
+            final_start_i = len(scaled_validation) - gmm.window_size + 1
 
             for i in range(final_start_i):
                 slide = scaled_validation.iloc[i : i + gmm.window_size]

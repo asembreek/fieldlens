@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-
+import warnings
 
 class DatasetBuilder:
     def __init__(self, init_df=None):
@@ -56,15 +56,24 @@ class DatasetBuilder:
 
     def interpolate(self, val_columns=None, dropna=True):
         val_columns = self.df.columns if val_columns is None else val_columns
-        self.df.loc[:, val_columns] = (
-            self.df[val_columns]
+        _cols = []
+
+        for e in val_columns:
+
+            if e == "Timestamp":
+                warnings.warn("Found \"Timestamp\" in interpolation columns, skipping...", UserWarning)
+                continue
+            _cols.append(e)
+
+        self.df.loc[:, _cols] = (
+            self.df[_cols]
             .interpolate(method="pchip", limit_area="inside")
             .bfill()
         )
         if dropna:
             self.df = self.df.dropna()
 
-        self._interpolated = list(val_columns)
+        self._interpolated = list(_cols)
         return self
 
     def drop_columns(self, columns):

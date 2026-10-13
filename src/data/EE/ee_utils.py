@@ -3,7 +3,46 @@ import json
 import ee
 import pandas as pd
 
+def make_grid(region, cell_size_m, epsg, full_cells_only=True):
+    # represent locations as projected coordinates in meters
+    proj = ee.Projection(epsg).atScale(cell_size_m)
+    grid = region.coveringGrid(proj)
 
+    if full_cells_only: # Filter by grid cells that are full-sized
+        def mark_full(f):
+            return f.set("inside", f.geometry().within(region, 1))
+
+        grid = grid.map(mark_full).filter(ee.Filter.eq("inside", 1))
+
+    features = grid.getInfo()["features"]
+
+    def sorter(f):
+        coords = f["geometry"]["coordinates"][0]
+        sum_lat = 0
+        sum_long = 0
+        for p in coords:
+            sum_lat += p[1]
+            sum_long += p[0]
+
+        return (sum_lat / len(coords), sum_long / len(coords))
+
+    features = sorted(features, key=sorter)
+    cells = []
+
+    for i, f in enumerate(features):
+        cell_id = f"cell_{i:03d}"
+        geometry = ee.Geometry(f["geometry"])
+        cells.append((cell_id, geometry))
+
+    return cells
+
+def stack_cells(cells, build_df_fn):
+    dfs = []
+    for cell_id, geom in cells:
+        df = build_df_fn(geom)
+        df.insert(0, "cell_id", cell_id)
+        dfs.append(df)
+    return pd.concat(dfs, ignore_index=True)
 
 def create_reducer(
     region, scale, reducer=ee.Reducer.mean(), maxPixels=1e13, tileScale=4
@@ -42,6 +81,9 @@ def im_to_df(image, fc_selection, reducer_fn, filt=None):
     select_df = pd.DataFrame(select_dict)
     select_df = _add_timestamp(select_df)
     return select_df
+
+
+
 
 
 def _fc_to_dict(fc):

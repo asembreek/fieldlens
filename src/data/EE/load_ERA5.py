@@ -22,7 +22,7 @@ def get_era5_data(aoi, i_date, f_date):
 
 
 def get_soil_levels_df(image, reducer_fn, variable):
-    sl_df = pd.DataFrame()
+    sl_df = None
 
     if variable == "temp":
         fc_selection_pref = SOIL_TEMP_LEVEL
@@ -35,24 +35,27 @@ def get_soil_levels_df(image, reducer_fn, variable):
         fc_selection = fc_selection_pref + str(i + 1)
         sl_i_df = utils.im_to_df(image, fc_selection, reducer_fn)
 
-        if i == 0:
-            sl_df["Timestamp"] = sl_i_df["Timestamp"]
+        if sl_df is None:
+            sl_df = sl_i_df
+        else:
+            sl_df.merge(sl_i_df, on=["cell_id", "Timestamp"])
 
-        sl_df[fc_selection] = sl_i_df[fc_selection]
     print(f"Concatinated {variable} levels DataFrame.")
     return sl_df
 
 
 def get_temp_2m_df(image, reducer_fn):
+    on_cols = ["cell_id", "Timestamp"]
     temp_2m_df = utils.im_to_df(image, TEMP_2M, reducer_fn)
     # print(utils.im_to_df(image, TEMP_2M, reducer_fn))
 
-    temp_2m_df[TEMP_2M_MIN] = utils.im_to_df(image, TEMP_2M_MIN, reducer_fn)[
-        TEMP_2M_MIN
-    ]
-    temp_2m_df[TEMP_2M_MAX] = utils.im_to_df(image, TEMP_2M_MAX, reducer_fn)[
-        TEMP_2M_MAX
-    ]
+    temp_2m_df = temp_2m_df.merge(
+        utils.im_to_df(image, TEMP_2M_MIN, reducer_fn), on=on_cols
+    )
+    temp_2m_df = temp_2m_df.merge(
+        utils.im_to_df(image, TEMP_2M_MAX, reducer_fn), on=on_cols
+    )
+
     return temp_2m_df
 
 

@@ -34,12 +34,18 @@ def apply_groupby_date(i_df, *other_dfs):
     for df in all_dfs:
         col_name = df.columns[0]
         grouped = (
-            df.groupby(df["Timestamp"].dt.date)
-            .agg({df.columns[0]: ["mean", "std"]})
+            df.groupby([df["cell_id"], df["Timestamp"].dt.date])
+            .agg({col_name: ["mean", "std"]})
+            .fillna({(col_name, "std"): 0})
             .dropna()
             .reset_index()
         )
-        grouped.columns = ["Timestamp", f"{col_name}_mean", f"{col_name}_std"]
+        grouped.columns = [
+            "cell_id",
+            "Timestamp",
+            f"{col_name}_mean",
+            f"{col_name}_std",
+        ]
         grouped["Timestamp"] = pd.to_datetime(grouped["Timestamp"])
         grouped_results.append(grouped)
     return grouped_results

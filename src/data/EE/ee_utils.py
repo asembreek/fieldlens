@@ -4,6 +4,7 @@ import ee
 import pandas as pd
 
 
+
 def create_reducer(
     region, scale, reducer=ee.Reducer.mean(), maxPixels=1e13, tileScale=4
 ):

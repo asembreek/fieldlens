@@ -181,3 +181,5 @@ cython_debug/
 
 # test notebooks
 notebooks/Untitled.ipynb
+
+*.bak/

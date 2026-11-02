@@ -16,7 +16,7 @@ The forecasting part of the project embeds observations into a higher-dimensiona
 ## What this isn't
 This is **not** an intrinsic time-series model. By definition, the GMM assumes independent observations and as such, Stochastic Processes and Time Series Models are not used to model temporal structures. Instead, this structure is modeled by delay-embedding the series into fixed-length overlapping windows, making use of the Expectation Step of the EM-Algorithm to forecast the response variables.
 
-Additionally, this project is **not** made to rival state-of-the-art models typically used in Time Series Analysis. It is primarily a proof of concept and a deep-dive into a model I found most interesting in my studies and later expanded upon in the paper [...]. The goal is therefore the implementation and understanding of these ideas. 
+Additionally, this project is **not** made to rival state-of-the-art models typically used in Time Series Analysis. It is primarily a proof of concept and a deep-dive into a model I found most interesting in my studies and later expanded upon in the paper by Eirola and Lendasse.. The goal is therefore the implementation and understanding of these ideas. 
 
 ## Notebooks
 
@@ -28,19 +28,11 @@ Additionally, this project is **not** made to rival state-of-the-art models typi
 |  3. EDA with engineered features      | Further Exploratory Data Analysis, but with the newly engineered features. This part specifically focuses on identifying anomalous years in the dataset.                                                                |   |
 |  4. Gaussian Mixture Model            | Fitting of the unsupervised anomaly detecting Gaussian Mixture Model. Evaluated on both anomalous data and "normal" data (i.e. data that does not deviate far from approximately 0 log-likelihood)                      |   |
 | 5. Forecasting Gaussian Mixture Model | Implementation of the research paper by Eirola and Lendasse (2013). Focuses on reducing overfitting and evaluating prediction accuracy.                                                                                                         |   |
-## Usage/Examples
 
-```python
-//TODO
-pass
-```
-
-## Evaluation
-TODO
 
 ##  Limitations
 The largest limitation this model faces is _data_. More specifically,
-- Sentinel-2 only passes an area every x amount of days. If a specific pass is flagged by the cloud-mask, we lose that observation. This means that, across an interval of multiple years, we will only have a fraction of observations available to calculate the Normalised Difference indices. The missing observations are accounted for by using cubic-spline interpolation, and could theoretically be predicted using a climatology model.
+- Sentinel-2 only passes an area around every 5 days. If a specific pass is flagged by the cloud-mask, we lose that observation. This means that, across an interval of multiple years, we will only have a fraction of observations available to calculate the Normalised Difference indices. The missing observations are accounted for by using cubic-spline interpolation, and could theoretically be predicted using a climatology model.
 - The delay-embedded GMM struggles with large amounts of multi-colinearity. Even when trained on the interpolated data, the sheer amount of features produced by delay-embedding results in a highly overfit model. This is mostly mitigated by forcing a "tied" covariance matrix across each cluster, but the ideal situation (i.e. tens-of-thousands of observations) would rather have a unique one for each.
 
 ## Project Structure
